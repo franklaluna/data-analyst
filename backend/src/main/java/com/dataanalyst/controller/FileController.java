@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +32,11 @@ public class FileController {
             File uploadDir = new File(UPLOAD_DIR);
             if (!uploadDir.exists()) uploadDir.mkdirs();
 
-            String filename = file.getOriginalFilename();
+            String rawName = file.getOriginalFilename();
+            String filename = Paths.get(rawName != null ? rawName : "upload").getFileName().toString();
+            if (!filename.matches("[a-zA-Z0-9._\\-\\u4e00-\\u9fff]+")) {
+                filename = "upload_" + System.currentTimeMillis();
+            }
             String filePath = UPLOAD_DIR + System.currentTimeMillis() + "_" + filename;
             file.transferTo(new File(filePath));
 

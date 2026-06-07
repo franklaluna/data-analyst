@@ -23,6 +23,8 @@ Thumbs.db
 
 # Env
 .env
+.env.*
+!.env.example
 *.log
 
 # Test files

@@ -3,6 +3,7 @@ import axios from 'axios'
 const api = axios.create({ baseURL: '/api' })
 
 export interface FileUploadResponse {
+  id: number
   filename: string
   row_count: number
   col_count: number

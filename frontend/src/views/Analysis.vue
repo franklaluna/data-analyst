@@ -110,10 +110,7 @@ function setQAChartRef(el: unknown, idx: number) {
 }
 
 onMounted(async () => {
-  const queryData = route.query.data as string
-  if (queryData) {
-    data.value = JSON.parse(queryData)
-  } else if (route.params.id) {
+  if (route.params.id) {
     try {
       data.value = await getFile(Number(route.params.id))
     } catch (e) {

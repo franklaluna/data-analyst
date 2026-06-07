@@ -2,19 +2,46 @@ import subprocess
 import sys
 import json
 import os
+import re
 import tempfile
+import pathlib
+
+
+UPLOAD_DIR = "/tmp/data-analyst-uploads"
 
 
 def execute_code(code: str, file_path: str) -> dict:
+    # Validate file_path: must be within allowed directory
+    resolved = pathlib.Path(file_path).resolve()
+    allowed = pathlib.Path(UPLOAD_DIR).resolve()
+    if not str(resolved).startswith(str(allowed)):
+        raise ValueError("File path outside allowed directory")
+    if not resolved.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    safe_path = str(resolved).replace("\\", "/")
+
     # Validate code: whitelist approach - only allow safe operations
     forbidden = ['import os', 'import sys', 'import subprocess', 'open(',
                   'exec(', 'eval(', '__import__', 'compile(',
-                  'import shutil', 'import pathlib', 'import socket']
+                  'import shutil', 'import pathlib', 'import socket',
+                  'import importlib', 'getattr(', 'setattr(',
+                  '__builtins__', '__globals__', '__locals__']
     for keyword in forbidden:
         if keyword in code:
             raise ValueError(f"Forbidden operation: {keyword}")
 
+    # Additional: check for obfuscated patterns
+    if re.search(r'__[a-z]+__', code):
+        raise ValueError("Dunder attributes are not allowed")
+
+    ext = os.path.splitext(safe_path)[1].lower()
+    if ext not in ('.xlsx', '.xls', '.csv'):
+        raise ValueError(f"Unsupported file format: {ext}")
+
     # Wrap code to load data and capture result
+    # Use json.dumps to safely encode the file path
+    safe_path_json = json.dumps(safe_path)
     wrapper = f"""
 import pandas as pd
 import numpy as np
@@ -35,13 +62,14 @@ def _safe_serialize(obj):
     return obj
 
 try:
-    ext = '{os.path.splitext(file_path)[1].lower()}'
-    if ext in ('.xlsx', '.xls'):
-        df = pd.read_excel('{file_path}', nrows=100000)
-    elif ext == '.csv':
-        df = pd.read_csv('{file_path}', nrows=100000)
+    _file_path = {safe_path_json}
+    _ext = _file_path.rsplit('.', 1)[-1].lower() if '.' in _file_path else ''
+    if _ext in ('xlsx', 'xls'):
+        df = pd.read_excel(_file_path, nrows=100000)
+    elif _ext == 'csv':
+        df = pd.read_csv(_file_path, nrows=100000)
     else:
-        raise ValueError(f"Unsupported: {{ext}}")
+        raise ValueError(f"Unsupported: {{_ext}}")
 
     result = None
     chart = None

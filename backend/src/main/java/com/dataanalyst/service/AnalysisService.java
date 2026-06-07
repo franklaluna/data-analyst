@@ -40,7 +40,7 @@ public class AnalysisService {
         List<Map<String, Object>> charts = (List<Map<String, Object>>) profile.get("charts");
         if (charts != null) {
             for (Map<String, Object> chart : charts) {
-                Map<String, Object> chartData = generateChartData(chart, filePath);
+                Object chartData = generateChartData(chart, filePath);
                 chart.put("data", chartData);
             }
         }
@@ -55,17 +55,24 @@ public class AnalysisService {
             "INSERT INTO da_files (user_id, filename, file_path, row_count, col_count, columns_json, profile_json) VALUES (1, ?, ?, ?, ?, ?, ?)",
             filename, filePath, rowCount, colCount, columnsJson, profileJson
         );
+        Long fileId = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+        profile.put("id", fileId);
 
         return profile;
     }
 
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> generateChartData(Map<String, Object> chart, String filePath) throws Exception {
+    private static String sanitizeColumn(String col) {
+        if (col == null) return null;
+        String safe = col.replaceAll("[^a-zA-Z0-9_\\s\\-\\u4e00-\\u9fff]", "");
+        return safe.isEmpty() ? "_col" : safe;
+    }
+
+    private Object generateChartData(Map<String, Object> chart, String filePath) throws Exception {
         String type = (String) chart.get("type");
-        String xAxis = (String) chart.get("x_axis");
-        String yAxis = (String) chart.get("y_axis");
-        String nameField = (String) chart.get("name_field");
-        String valueField = (String) chart.get("value_field");
+        String xAxis = sanitizeColumn((String) chart.get("x_axis"));
+        String yAxis = sanitizeColumn((String) chart.get("y_axis"));
+        String nameField = sanitizeColumn((String) chart.get("name_field"));
+        String valueField = sanitizeColumn((String) chart.get("value_field"));
 
         String code;
         if ("pie".equals(type)) {
@@ -74,15 +81,18 @@ public class AnalysisService {
                 "result = [{'name': str(k), 'value': float(v)} for k, v in grouped.items()]\n",
                 nameField, valueField);
         } else {
-            String aggFunc = "line".equals(type) ? "sum" : "sum";
             code = String.format(
-                "grouped = df.groupby('%s')['%s'].%s()\n" +
+                "grouped = df.groupby('%s')['%s'].sum()\n" +
                 "result = [{'x': str(k), 'y': float(v)} for k, v in grouped.items()]\n",
-                xAxis, yAxis, aggFunc);
+                xAxis, yAxis);
         }
 
         Map<String, Object> execResult = pythonClient.executeCode(code, filePath);
-        return execResult;
+        if (execResult.containsKey("error")) {
+            log.warn("Chart data generation failed: {}", execResult.get("error"));
+            return null;
+        }
+        return execResult.get("result");
     }
 
     public List<Map<String, Object>> listFiles() {

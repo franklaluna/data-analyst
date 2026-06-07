@@ -24,8 +24,8 @@ services:
     environment:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - SPRING_DATASOURCE_URL=jdbc:mysql://192.168.11.7:3306/ryactiviti?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf-8
-      - SPRING_DATASOURCE_USERNAME=root
-      - SPRING_DATASOURCE_PASSWORD=laluna157
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME:-root}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
       - PYTHON_BASE_URL=http://python:8001
     volumes:
       - /tmp/data-analyst-uploads:/tmp/data-analyst-uploads

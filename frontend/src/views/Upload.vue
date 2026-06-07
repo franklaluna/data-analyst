@@ -13,10 +13,14 @@
       :show-file-list="false"
       accept=".xlsx,.xls,.csv"
     >
-      <el-icon class="el-icon--upload"><i class="el-icon-upload"></i></el-icon>
-      <div class="el-upload__text">
-        拖拽文件到此处，或 <em>点击选择文件</em>
-      </div>
+      <template #trigger>
+        <div class="upload-inner">
+          <el-icon class="el-icon--upload"><i class="el-icon-upload"></i></el-icon>
+          <div class="el-upload__text">
+            拖拽文件到此处，或 <em>点击选择文件</em>
+          </div>
+        </div>
+      </template>
       <template #tip>
         <div class="el-upload__tip">支持 .xlsx、.xls、.csv 格式，最大 50MB</div>
       </template>
@@ -95,11 +99,9 @@ async function doUpload() {
     progress.value = 100
     progressText.value = '分析完成！'
 
-    // Store result and navigate
-    sessionStorage.setItem('analysis_' + result.filename, JSON.stringify(result))
-    // For now, navigate with filename as key (will use ID from DB later)
+    // Navigate using file ID from backend
     setTimeout(() => {
-      router.push({ name: 'analysis', query: { data: JSON.stringify(result) } })
+      router.push({ name: 'analysis', params: { id: result.id } })
     }, 500)
   } catch (e: any) {
     clearInterval(timer)
