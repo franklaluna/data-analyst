@@ -7,10 +7,12 @@ export interface FileUploadResponse {
   filename: string
   row_count: number
   col_count: number
+  data_type?: string
   summary: string
   columns: ColumnInfo[]
   charts: ChartInfo[]
   sample_data: Record<string, unknown>[]
+  correlation?: { fields: string[]; matrix: number[][] }
 }
 
 export interface ColumnInfo {
@@ -25,12 +27,13 @@ export interface ColumnInfo {
 }
 
 export interface ChartInfo {
-  type: 'line' | 'bar' | 'pie'
+  type: 'line' | 'bar' | 'pie' | 'heatmap'
   title: string
   x_axis?: string
   y_axis?: string
   name_field?: string
   value_field?: string
+  fields?: string[]
   description: string
   data?: Record<string, unknown>[]
 }

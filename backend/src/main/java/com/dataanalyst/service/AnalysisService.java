@@ -67,6 +67,7 @@ public class AnalysisService {
         return safe.isEmpty() ? "_col" : safe;
     }
 
+    @SuppressWarnings("unchecked")
     private Object generateChartData(Map<String, Object> chart, String filePath) throws Exception {
         String type = (String) chart.get("type");
         String xAxis = sanitizeColumn((String) chart.get("x_axis"));
@@ -75,11 +76,41 @@ public class AnalysisService {
         String valueField = sanitizeColumn((String) chart.get("value_field"));
 
         String code;
-        if ("pie".equals(type)) {
+
+        if ("heatmap".equals(type)) {
+            // Correlation heatmap
+            List<String> fields = (List<String>) chart.get("fields");
+            if (fields == null || fields.size() < 3) return null;
+            StringBuilder fieldList = new StringBuilder("[");
+            for (int i = 0; i < fields.size(); i++) {
+                if (i > 0) fieldList.append(", ");
+                fieldList.append("'").append(sanitizeColumn(fields.get(i))).append("'");
+            }
+            fieldList.append("]");
             code = String.format(
-                "grouped = df.groupby('%s')['%s'].sum().sort_values(ascending=False).head(10)\n" +
-                "result = [{'name': str(k), 'value': float(v)} for k, v in grouped.items()]\n",
-                nameField, valueField);
+                "corr = df[%s].corr()\n" +
+                "n = len(corr)\n" +
+                "result = [[i, j, round(float(corr.iloc[i, j]), 2)] for i in range(n) for j in range(n)]\n",
+                fieldList.toString());
+        } else if ("pie".equals(type)) {
+            if ("count".equals(valueField)) {
+                // Count-based pie (e.g., call direction distribution)
+                code = String.format(
+                    "grouped = df['%s'].value_counts().head(10)\n" +
+                    "result = [{'name': str(k), 'value': int(v)} for k, v in grouped.items()]\n",
+                    nameField);
+            } else {
+                code = String.format(
+                    "grouped = df.groupby('%s')['%s'].sum().sort_values(ascending=False).head(10)\n" +
+                    "result = [{'name': str(k), 'value': float(v)} for k, v in grouped.items()]\n",
+                    nameField, valueField);
+            }
+        } else if ("count".equals(yAxis)) {
+            // Count-based bar/line (e.g., call volume, top contacts)
+            code = String.format(
+                "grouped = df['%s'].value_counts().head(10)\n" +
+                "result = [{'x': str(k), 'y': int(v)} for k, v in grouped.items()]\n",
+                xAxis);
         } else {
             code = String.format(
                 "grouped = df.groupby('%s')['%s'].sum()\n" +

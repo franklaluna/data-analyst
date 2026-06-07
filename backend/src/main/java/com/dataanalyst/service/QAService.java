@@ -41,7 +41,7 @@ public class QAService {
         List<Map<String, Object>> sampleData = (List<Map<String, Object>>) profile.get("sample_data");
 
         // 2. Generate pandas code via LLM
-        String code = llmService.generatePandasCode(question, columns, sampleData);
+        String code = cleanCode(llmService.generatePandasCode(question, columns, sampleData));
         log.info("Generated code for question: {}", question);
         log.debug("Generated code:\n{}", code);
 
@@ -87,6 +87,23 @@ public class QAService {
         }
         jdbc.update("INSERT INTO da_sessions (file_id) VALUES (?)", fileId);
         return jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+    }
+
+    private static String cleanCode(String code) {
+        if (code == null) return "";
+        code = code.trim();
+        // Strip markdown code block: ```python ... ``` or ``` ... ```
+        if (code.startsWith("```")) {
+            int firstNewline = code.indexOf('\n');
+            if (firstNewline > 0) {
+                code = code.substring(firstNewline + 1);
+            }
+            if (code.endsWith("```")) {
+                code = code.substring(0, code.length() - 3);
+            }
+            code = code.trim();
+        }
+        return code;
     }
 
     public List<Map<String, Object>> getHistory(Long fileId) {

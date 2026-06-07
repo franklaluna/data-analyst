@@ -57,13 +57,36 @@ public class LLMService {
     }
 
     public String generateAnalysisSummary(Map<String, Object> profileResult) throws IOException {
-        String systemPrompt =
-            "你是一个数据分析助手。根据上传文件的 profiling 结果，用中文生成一段简洁的数据分析摘要。\n" +
-            "要求：\n" +
-            "1. 说明数据的基本情况（行数、列数、时间范围等）\n" +
-            "2. 指出关键数值列的统计特征（总和、均值、最大值等）\n" +
-            "3. 如果发现异常或有趣的模式，简要指出\n" +
-            "4. 语言简洁专业，不超过 200 字";
+        String dataType = (String) profileResult.getOrDefault("data_type", "generic");
+
+        String systemPrompt;
+        if ("bill".equals(dataType)) {
+            systemPrompt =
+                "你是一个账单数据分析助手。根据上传文件的 profiling 结果，用中文生成简洁的账单分析摘要。\n" +
+                "要求：\n" +
+                "1. 说明账单的基本情况（总支出、笔数、时间范围）\n" +
+                "2. 指出最大支出项和消费类别分布\n" +
+                "3. 分析消费趋势（是否增长、是否有异常大额消费）\n" +
+                "4. 给出简要的消费建议\n" +
+                "5. 语言简洁专业，不超过 250 字";
+        } else if ("call_record".equals(dataType)) {
+            systemPrompt =
+                "你是一个通话记录分析助手。根据上传文件的 profiling 结果，用中文生成简洁的话单分析摘要。\n" +
+                "要求：\n" +
+                "1. 说明通话的基本情况（总通话量、时间范围）\n" +
+                "2. 指出主要联系人和通话频率\n" +
+                "3. 分析通话时长特征（平均时长、最长通话）\n" +
+                "4. 如有来电/去电分类，分析比例\n" +
+                "5. 语言简洁专业，不超过 250 字";
+        } else {
+            systemPrompt =
+                "你是一个数据分析助手。根据上传文件的 profiling 结果，用中文生成一段简洁的数据分析摘要。\n" +
+                "要求：\n" +
+                "1. 说明数据的基本情况（行数、列数、时间范围等）\n" +
+                "2. 指出关键数值列的统计特征（总和、均值、最大值等）\n" +
+                "3. 如果发现异常或有趣的模式，简要指出\n" +
+                "4. 语言简洁专业，不超过 200 字";
+        }
 
         String data = mapper.writeValueAsString(profileResult);
         return chat(systemPrompt, "以下是数据文件的分析结果：\n" + data);

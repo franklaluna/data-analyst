@@ -7,7 +7,11 @@
           <template #header>
             <div class="card-header">
               <span>{{ data.filename || '数据分析结果' }}</span>
-              <el-tag>{{ data.row_count }} 行 × {{ data.col_count }} 列</el-tag>
+              <div>
+                <el-tag v-if="data.data_type === 'bill'" type="success" style="margin-right: 8px">账单数据</el-tag>
+                <el-tag v-else-if="data.data_type === 'call_record'" type="warning" style="margin-right: 8px">话单数据</el-tag>
+                <el-tag>{{ data.row_count }} 行 × {{ data.col_count }} 列</el-tag>
+              </div>
             </div>
           </template>
           <p class="summary-text">{{ data.summary }}</p>
@@ -20,7 +24,7 @@
       <el-col :span="12" v-for="(chart, idx) in data.charts" :key="idx">
         <el-card>
           <template #header><span>{{ chart.title }}</span></template>
-          <div :ref="(el) => setChartRef(el, idx)" class="chart-container"></div>
+          <div :ref="(el) => setChartRef(el, idx)" :class="chart.type === 'heatmap' ? 'chart-container-heatmap' : 'chart-container'"></div>
           <p class="chart-desc">{{ chart.description }}</p>
         </el-card>
       </el-col>
@@ -153,6 +157,20 @@ function renderCharts() {
         series: [{ type: 'pie', radius: '60%', data: d }],
         tooltip: { trigger: 'item' },
       }
+    } else if (chart.type === 'heatmap') {
+      const fields = chart.fields || []
+      const d = chart.data as number[][]
+      option = {
+        xAxis: { type: 'category', data: fields, axisLabel: { rotate: 30 } },
+        yAxis: { type: 'category', data: fields },
+        visualMap: { min: -1, max: 1, calculable: true, orient: 'horizontal', left: 'center', bottom: 0 },
+        series: [{
+          type: 'heatmap',
+          data: d,
+          label: { show: true, formatter: (p: { value: number[] }) => p.value[2]?.toFixed(2) || '' },
+        }],
+        tooltip: { formatter: (p: { value: number[] }) => `${fields[p.value[0]]} × ${fields[p.value[1]]}: ${p.value[2]?.toFixed(2)}` },
+      }
     } else {
       return
     }
@@ -198,6 +216,7 @@ async function doAsk() {
 .summary-text { line-height: 1.8; color: #606266; font-size: 15px; }
 .chart-row { margin-top: 20px; }
 .chart-container { height: 300px; }
+.chart-container-heatmap { height: 400px; }
 .chart-desc { color: #909399; font-size: 13px; margin-top: 8px; }
 .qa-row { margin-top: 20px; }
 .qa-input { margin-bottom: 20px; }

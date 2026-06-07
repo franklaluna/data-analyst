@@ -33,9 +33,11 @@ public class FileController {
             if (!uploadDir.exists()) uploadDir.mkdirs();
 
             String rawName = file.getOriginalFilename();
-            String filename = Paths.get(rawName != null ? rawName : "upload").getFileName().toString();
-            if (!filename.matches("[a-zA-Z0-9._\\-\\u4e00-\\u9fff]+")) {
-                filename = "upload_" + System.currentTimeMillis();
+            String filename = Paths.get(rawName != null ? rawName : "upload.dat").getFileName().toString();
+            // Strip dangerous characters (path separators, null bytes) but keep CJK, punctuation, spaces
+            filename = filename.replaceAll("[/\\\\\0]+", "");
+            if (filename.isEmpty() || filename.equals(".") || filename.equals("..")) {
+                filename = "upload_" + System.currentTimeMillis() + ".dat";
             }
             String filePath = UPLOAD_DIR + System.currentTimeMillis() + "_" + filename;
             file.transferTo(new File(filePath));
