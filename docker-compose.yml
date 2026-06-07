@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  python:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    ports:
+      - "8001:8001"
+    volumes:
+      - /tmp/data-analyst-uploads:/tmp/data-analyst-uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8080:8080"
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - SPRING_DATASOURCE_URL=jdbc:mysql://192.168.11.7:3306/ryactiviti?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf-8
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=laluna157
+      - PYTHON_BASE_URL=http://python:8001
+    volumes:
+      - /tmp/data-analyst-uploads:/tmp/data-analyst-uploads
+    depends_on:
+      python:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
