@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS da_files (
     col_count     INT,
     columns_json  TEXT,
     profile_json  TEXT,
+    project_id    BIGINT DEFAULT NULL,
     created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -15,6 +16,15 @@ CREATE TABLE IF NOT EXISTS da_sessions (
     file_id     BIGINT,
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (file_id) REFERENCES da_files(id)
+);
+
+CREATE TABLE IF NOT EXISTS da_projects (
+    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id     BIGINT NOT NULL DEFAULT 1,
+    name        VARCHAR(255) NOT NULL,
+    description VARCHAR(500),
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS da_qa_history (
@@ -27,3 +37,8 @@ CREATE TABLE IF NOT EXISTS da_qa_history (
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (session_id) REFERENCES da_sessions(id)
 );
+
+-- For existing databases: add project_id to da_files if not already present
+-- These are safe to run on existing databases (will fail silently if column/fk already exists)
+ALTER TABLE da_files ADD COLUMN IF NOT EXISTS project_id BIGINT DEFAULT NULL;
+ALTER TABLE da_files ADD FOREIGN KEY (project_id) REFERENCES da_projects(id) ON DELETE SET NULL;

@@ -1,5 +1,15 @@
 <template>
   <div class="analysis-page" v-if="data">
+    <!-- 面包屑导航 -->
+    <el-breadcrumb separator="/" class="breadcrumb">
+      <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
+      <el-breadcrumb-item
+        v-if="data.project_id"
+        :to="{ name: 'project-detail', params: { id: data.project_id } }"
+      >{{ data.project_name }}</el-breadcrumb-item>
+      <el-breadcrumb-item>{{ data.filename }}</el-breadcrumb-item>
+    </el-breadcrumb>
+
     <el-row :gutter="20">
       <!-- Summary -->
       <el-col :span="24">
@@ -211,6 +221,7 @@ async function doAsk() {
 
 <style scoped>
 .analysis-page { padding: 20px; }
+.breadcrumb { margin-bottom: 20px; }
 .summary-card { margin-bottom: 20px; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
 .summary-text { line-height: 1.8; color: #606266; font-size: 15px; }

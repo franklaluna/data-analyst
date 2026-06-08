@@ -13,6 +13,8 @@ export interface FileUploadResponse {
   charts: ChartInfo[]
   sample_data: Record<string, unknown>[]
   correlation?: { fields: string[]; matrix: number[][] }
+  project_id?: number | null
+  project_name?: string | null
 }
 
 export interface ColumnInfo {
@@ -46,9 +48,22 @@ export interface QAResponse {
   chart?: Record<string, unknown>
 }
 
-export function uploadFile(file: File): Promise<FileUploadResponse> {
+export interface Project {
+  id: number
+  name: string
+  description: string
+  created_at: string
+  file_count?: number
+}
+
+export interface ProjectDetail extends Project {
+  files: { id: number; filename: string; row_count: number; col_count: number; created_at: string }[]
+}
+
+export function uploadFile(file: File, projectId?: number): Promise<FileUploadResponse> {
   const formData = new FormData()
   formData.append('file', file)
+  if (projectId != null) formData.append('project_id', String(projectId))
   return api.post('/files/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }).then(r => r.data)
@@ -58,8 +73,9 @@ export function getFile(id: number): Promise<FileUploadResponse> {
   return api.get(`/files/${id}`).then(r => r.data)
 }
 
-export function listFiles(): Promise<{ id: number; filename: string; row_count: number; created_at: string }[]> {
-  return api.get('/files').then(r => r.data)
+export function listFiles(projectId?: number): Promise<{ id: number; filename: string; row_count: number; created_at: string; project_name?: string }[]> {
+  const params = projectId != null ? { project_id: projectId } : undefined
+  return api.get('/files', { params }).then(r => r.data)
 }
 
 export function askQuestion(fileId: number, question: string): Promise<QAResponse> {
@@ -68,4 +84,24 @@ export function askQuestion(fileId: number, question: string): Promise<QARespons
 
 export function getQAHistory(fileId: number): Promise<{ question: string; answer: string; chart_json: string }[]> {
   return api.get(`/qa/history/${fileId}`).then(r => r.data)
+}
+
+export function listProjects(): Promise<Project[]> {
+  return api.get('/projects').then(r => r.data)
+}
+
+export function createProject(name: string, description?: string): Promise<Project> {
+  return api.post('/projects', { name, description }).then(r => r.data)
+}
+
+export function getProject(id: number): Promise<ProjectDetail> {
+  return api.get(`/projects/${id}`).then(r => r.data)
+}
+
+export function updateProject(id: number, name: string, description?: string): Promise<void> {
+  return api.put(`/projects/${id}`, { name, description })
+}
+
+export function deleteProject(id: number): Promise<void> {
+  return api.delete(`/projects/${id}`)
 }

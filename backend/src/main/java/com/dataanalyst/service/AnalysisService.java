@@ -27,7 +27,7 @@ public class AnalysisService {
         this.jdbc = jdbc;
     }
 
-    public Map<String, Object> analyzeFile(String filePath, String filename) throws Exception {
+    public Map<String, Object> analyzeFile(String filePath, String filename, Long projectId) throws Exception {
         // 1. Call Python to profile the file
         Map<String, Object> profile = pythonClient.analyze(filePath);
         log.info("Profiled file: rows={}, cols={}", profile.get("row_count"), profile.get("col_count"));
@@ -52,8 +52,8 @@ public class AnalysisService {
         String profileJson = mapper.writeValueAsString(profile);
 
         jdbc.update(
-            "INSERT INTO da_files (user_id, filename, file_path, row_count, col_count, columns_json, profile_json) VALUES (1, ?, ?, ?, ?, ?, ?)",
-            filename, filePath, rowCount, colCount, columnsJson, profileJson
+            "INSERT INTO da_files (user_id, filename, file_path, row_count, col_count, columns_json, profile_json, project_id) VALUES (1, ?, ?, ?, ?, ?, ?, ?)",
+            filename, filePath, rowCount, colCount, columnsJson, profileJson, projectId
         );
         Long fileId = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
         profile.put("id", fileId);
@@ -61,19 +61,24 @@ public class AnalysisService {
         return profile;
     }
 
-    private static String sanitizeColumn(String col) {
+    /**
+     * Escape column name for use in Python string literals.
+     * Preserves the original column name while preventing code injection.
+     */
+    private static String escapePythonString(String col) {
         if (col == null) return null;
-        String safe = col.replaceAll("[^a-zA-Z0-9_\\s\\-\\u4e00-\\u9fff]", "");
-        return safe.isEmpty() ? "_col" : safe;
+        if (col.isEmpty()) return "_col";
+        // Escape backslashes first, then single quotes
+        return col.replace("\\", "\\\\").replace("'", "\\'");
     }
 
     @SuppressWarnings("unchecked")
     private Object generateChartData(Map<String, Object> chart, String filePath) throws Exception {
         String type = (String) chart.get("type");
-        String xAxis = sanitizeColumn((String) chart.get("x_axis"));
-        String yAxis = sanitizeColumn((String) chart.get("y_axis"));
-        String nameField = sanitizeColumn((String) chart.get("name_field"));
-        String valueField = sanitizeColumn((String) chart.get("value_field"));
+        String xAxis = escapePythonString((String) chart.get("x_axis"));
+        String yAxis = escapePythonString((String) chart.get("y_axis"));
+        String nameField = escapePythonString((String) chart.get("name_field"));
+        String valueField = escapePythonString((String) chart.get("value_field"));
 
         String code;
 
@@ -84,7 +89,7 @@ public class AnalysisService {
             StringBuilder fieldList = new StringBuilder("[");
             for (int i = 0; i < fields.size(); i++) {
                 if (i > 0) fieldList.append(", ");
-                fieldList.append("'").append(sanitizeColumn(fields.get(i))).append("'");
+                fieldList.append("'").append(escapePythonString(fields.get(i))).append("'");
             }
             fieldList.append("]");
             code = String.format(
@@ -128,19 +133,40 @@ public class AnalysisService {
 
     public List<Map<String, Object>> listFiles() {
         return jdbc.queryForList(
-            "SELECT id, filename, row_count, col_count, created_at FROM da_files ORDER BY created_at DESC LIMIT 20"
+            "SELECT f.id, f.filename, f.row_count, f.col_count, f.created_at, f.project_id, p.name AS project_name " +
+            "FROM da_files f LEFT JOIN da_projects p ON f.project_id = p.id " +
+            "ORDER BY f.created_at DESC LIMIT 20"
+        );
+    }
+
+    public List<Map<String, Object>> listFiles(Long projectId) {
+        return jdbc.queryForList(
+            "SELECT f.id, f.filename, f.row_count, f.col_count, f.created_at, f.project_id, p.name AS project_name " +
+            "FROM da_files f LEFT JOIN da_projects p ON f.project_id = p.id " +
+            "WHERE f.project_id = ? ORDER BY f.created_at DESC",
+            projectId
         );
     }
 
     public Map<String, Object> getFileProfile(Long fileId) {
-        String profileJson = jdbc.queryForObject(
-            "SELECT profile_json FROM da_files WHERE id = ?", String.class, fileId
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT f.profile_json, f.project_id, p.name AS project_name " +
+            "FROM da_files f LEFT JOIN da_projects p ON f.project_id = p.id " +
+            "WHERE f.id = ?",
+            fileId
         );
+        if (rows.isEmpty()) {
+            return null;
+        }
+        String profileJson = (String) rows.get(0).get("profile_json");
         if (profileJson == null) {
             return null;
         }
         try {
-            return mapper.readValue(profileJson, Map.class);
+            Map<String, Object> profile = mapper.readValue(profileJson, Map.class);
+            profile.put("project_id", rows.get(0).get("project_id"));
+            profile.put("project_name", rows.get(0).get("project_name"));
+            return profile;
         } catch (Exception e) {
             log.error("Failed to parse profile JSON", e);
             return null;

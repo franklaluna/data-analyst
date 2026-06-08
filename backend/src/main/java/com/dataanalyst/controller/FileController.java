@@ -27,7 +27,9 @@ public class FileController {
     }
 
     @PostMapping("/upload")
-    public ResponseEntity<Map<String, Object>> upload(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<Map<String, Object>> upload(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "projectId", required = false) Long projectId) {
         try {
             File uploadDir = new File(UPLOAD_DIR);
             if (!uploadDir.exists()) uploadDir.mkdirs();
@@ -44,7 +46,7 @@ public class FileController {
 
             log.info("Uploaded file: {} -> {}", filename, filePath);
 
-            Map<String, Object> result = analysisService.analyzeFile(filePath, filename);
+            Map<String, Object> result = analysisService.analyzeFile(filePath, filename, projectId);
             result.put("filename", filename);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
@@ -56,7 +58,11 @@ public class FileController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Map<String, Object>>> listFiles() {
+    public ResponseEntity<List<Map<String, Object>>> listFiles(
+            @RequestParam(value = "projectId", required = false) Long projectId) {
+        if (projectId != null) {
+            return ResponseEntity.ok(analysisService.listFiles(projectId));
+        }
         return ResponseEntity.ok(analysisService.listFiles());
     }
 
